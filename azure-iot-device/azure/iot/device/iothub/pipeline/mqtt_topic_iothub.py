@@ -1,4 +1,4 @@
-# --------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
@@ -18,16 +18,14 @@ def _get_topic_base(device_id, module_id):
     """
 
     if module_id:
-        return "devices/" + device_id + "/modules/" + module_id
+        return (
+            "devices/"
+            + urllib.parse.quote_plus(device_id)
+            + "/modules/"
+            + urllib.parse.quote_plus(module_id)
+        )
     else:
-        return "devices/" + device_id
-
-
-def get_telemetry_topic_for_publish(device_id, module_id):
-    """
-    return the topic string used to publish telemetry
-    """
-    return _get_topic_base(device_id, module_id) + "/messages/events/"
+        return "devices/" + urllib.parse.quote_plus(device_id)
 
 
 def get_c2d_topic_for_subscribe(device_id, module_id):
@@ -46,6 +44,21 @@ def get_input_topic_for_subscribe(device_id, module_id):
     return _get_topic_base(device_id, module_id) + "/inputs/#"
 
 
+def get_method_topic_for_subscribe():
+    """
+    :return: The topic for ALL incoming methods. It is of the format
+    "$iothub/methods/POST/#"
+    """
+    return "$iothub/methods/POST/#"
+
+
+def get_telemetry_topic_for_publish(device_id, module_id):
+    """
+    return the topic string used to publish telemetry
+    """
+    return _get_topic_base(device_id, module_id) + "/messages/events/"
+
+
 def get_method_topic_for_publish(request_id, status):
     """
     :return: The topic for publishing method responses. It is of the format
@@ -54,14 +67,6 @@ def get_method_topic_for_publish(request_id, status):
     return "$iothub/methods/res/{status}/?$rid={request_id}".format(
         status=urllib.parse.quote_plus(status), request_id=urllib.parse.quote_plus(request_id)
     )
-
-
-def get_method_topic_for_subscribe():
-    """
-    :return: The topic for ALL incoming methods. It is of the format
-    "$iothub/methods/POST/#"
-    """
-    return "$iothub/methods/POST/#"
 
 
 def is_c2d_topic(topic, device_id):
