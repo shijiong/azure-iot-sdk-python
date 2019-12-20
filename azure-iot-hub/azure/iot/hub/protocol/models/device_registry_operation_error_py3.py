@@ -102,8 +102,8 @@ class DeviceRegistryOperationError(Model):
      'GenericServiceUnavailable', 'ServiceUnavailable', 'PartitionNotFound',
      'IotHubActivationFailed', 'ServerBusy', 'IotHubRestoring',
      'ReceiveLinkOpensThrottled', 'ConnectionUnavailable', 'DeviceUnavailable',
-     'ConfigurationNotAvailable', 'GroupNotAvailable', 'GenericGatewayTimeout',
-     'GatewayTimeout'
+     'ConfigurationNotAvailable', 'GroupNotAvailable',
+     'HostingServiceNotAvailable', 'GenericGatewayTimeout', 'GatewayTimeout'
     :type error_code: str or ~protocol.models.enum
     :param error_status: Additional details associated with the error.
     :type error_status: str
