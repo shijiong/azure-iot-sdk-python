@@ -63,6 +63,8 @@ def get_method_topic_for_publish(request_id, status):
     """
     :return: The topic for publishing method responses. It is of the format
     "$iothub/methods/res/<status>/?$rid=<requestId>
+
+    Note that all inputs MUST be strings (not ints!)
     """
     return "$iothub/methods/res/{status}/?$rid={request_id}".format(
         status=urllib.parse.quote_plus(status), request_id=urllib.parse.quote_plus(request_id)
@@ -75,7 +77,7 @@ def is_c2d_topic(topic, device_id):
     devices/<deviceId>/messages/devicebound
     :param topic: The topic string
     """
-    if "devices/{}/messages/devicebound".format(device_id) in topic:
+    if "devices/{}/messages/devicebound".format(urllib.parse.quote_plus(device_id)) in topic:
         return True
     return False
 
@@ -91,6 +93,32 @@ def is_input_topic(topic, device_id, module_id):
     return False
 
 
+def is_method_topic(topic):
+    """
+    Topics for methods are of the following format:
+    "$iothub/methods/POST/{method name}/?$rid={request id}"
+
+    :param str topic: The topic string.
+    """
+    if "$iothub/methods/POST" in topic:
+        return True
+    return False
+
+
+def is_twin_response_topic(topic):
+    """Topics for twin responses are of the following format:
+    $iothub/twin/res/{status}/?$rid={rid}
+    """
+    return topic.startswith("$iothub/twin/res/")
+
+
+def is_twin_desired_property_patch_topic(topic):
+    """Topics for twin desired property patches are of the following format:
+    $iothub/twin/PATCH/properties/desired
+    """
+    return topic.startswith("$iothub/twin/PATCH/properties/desired")
+
+
 def get_input_name_from_topic(topic):
     """
     Extract the input channel from the topic name
@@ -103,18 +131,6 @@ def get_input_name_from_topic(topic):
         return parts[5]
     else:
         raise ValueError("topic has incorrect format")
-
-
-def is_method_topic(topic):
-    """
-    Topics for methods are of the following format:
-    "$iothub/methods/POST/{method name}/?$rid={request id}"
-
-    :param str topic: The topic string.
-    """
-    if "$iothub/methods/POST" in topic:
-        return True
-    return False
 
 
 def get_method_name_from_topic(topic):
@@ -285,10 +301,6 @@ def get_twin_topic_for_publish(method, resource_location, request_id):
     return "$iothub/twin/{}{}?$rid={}".format(method, resource_location, request_id)
 
 
-def is_twin_response_topic(topic):
-    return topic.startswith("$iothub/twin/res/")
-
-
 def get_twin_request_id_from_topic(topic):
     parts = topic.split("/")
     if is_twin_response_topic(topic) and len(parts) >= 4:
@@ -304,7 +316,3 @@ def get_twin_status_code_from_topic(topic):
         return parts[3]
     else:
         raise ValueError("topic has incorrect format")
-
-
-def is_twin_desired_property_patch_topic(topic):
-    return topic.startswith("$iothub/twin/PATCH/properties/desired")
