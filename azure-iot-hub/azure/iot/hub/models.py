@@ -3,7 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-"""This module defines constants for use across the azure-iot-hub package
+"""This module imports and re-exposes the contents of the .protocol.models
+subpacakge to be better exposed through the user API surface
 """
-
-VERSION = "2.0.0"
+from .protocol.models import *
