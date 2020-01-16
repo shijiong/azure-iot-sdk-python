@@ -133,7 +133,7 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             op, pipeline_ops_iothub.SendOutputEventOperation
         ):
             # Convert SendTelementry and SendOutputEventOperation operations into MQTT Publish operations
-            topic = mqtt_topic_iothub.encode_properties(op.message, self.telemetry_topic)
+            topic = mqtt_topic_iothub.encode_message_properties(op.message, self.telemetry_topic)
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
                 topic=topic,
@@ -223,12 +223,12 @@ class IoTHubMQTTTranslationStage(PipelineStage):
 
             if mqtt_topic_iothub.is_c2d_topic(topic, self.device_id):
                 message = Message(event.payload)
-                mqtt_topic_iothub.extract_properties_from_topic(topic, message)
+                mqtt_topic_iothub.extract_message_properties_from_topic(topic, message)
                 self.send_event_up(pipeline_events_iothub.C2DMessageEvent(message))
 
             elif mqtt_topic_iothub.is_input_topic(topic, self.device_id, self.module_id):
                 message = Message(event.payload)
-                mqtt_topic_iothub.extract_properties_from_topic(topic, message)
+                mqtt_topic_iothub.extract_message_properties_from_topic(topic, message)
                 input_name = mqtt_topic_iothub.get_input_name_from_topic(topic)
                 self.send_event_up(pipeline_events_iothub.InputMessageEvent(input_name, message))
 

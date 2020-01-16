@@ -52,6 +52,22 @@ def get_method_topic_for_subscribe():
     return "$iothub/methods/POST/#"
 
 
+def get_twin_response_topic_for_subscribe():
+    """
+    :return: The topic for ALL incoming twin responses. It is of the format
+    "$iothub/twin/res/#"
+    """
+    return "$iothub/twin/res/#"
+
+
+def get_twin_patch_topic_for_subscribe():
+    """
+    :return: The topic for ALL incoming twin patches. It is of the format
+    "$iothub/twin/PATCH/properties/desired/#
+    """
+    return "$iothub/twin/PATCH/properties/desired/#"
+
+
 def get_telemetry_topic_for_publish(device_id, module_id):
     """
     return the topic string used to publish telemetry
@@ -68,6 +84,22 @@ def get_method_topic_for_publish(request_id, status):
     """
     return "$iothub/methods/res/{status}/?$rid={request_id}".format(
         status=urllib.parse.quote_plus(status), request_id=urllib.parse.quote_plus(request_id)
+    )
+
+
+# TODO: Consider splitting this into separate logic for Twin Requests / Twin Patches
+# This is the only method that is shared. Would probably simplify code if it was split.
+def get_twin_topic_for_publish(method, resource_location, request_id):
+    """
+    :return: The topic for publishing twin requests / patches. It is of the format
+    "$iothub/twin/<method><resourceLocation>?$rid=<requestId>
+
+    Note that all inputs MUST be strings (not ints!)
+    """
+    return "$iothub/twin/{method}{resource_location}?$rid={request_id}".format(
+        method=method,
+        resource_location=resource_location,
+        request_id=urllib.parse.quote_plus(request_id),
     )
 
 
@@ -108,6 +140,8 @@ def is_method_topic(topic):
 def is_twin_response_topic(topic):
     """Topics for twin responses are of the following format:
     $iothub/twin/res/{status}/?$rid={rid}
+
+    :param str topic: The topic string
     """
     return topic.startswith("$iothub/twin/res/")
 
@@ -115,6 +149,8 @@ def is_twin_response_topic(topic):
 def is_twin_desired_property_patch_topic(topic):
     """Topics for twin desired property patches are of the following format:
     $iothub/twin/PATCH/properties/desired
+
+    :param str topic: The topic string
     """
     return topic.startswith("$iothub/twin/PATCH/properties/desired")
 
@@ -124,6 +160,7 @@ def get_input_name_from_topic(topic):
     Extract the input channel from the topic name
     Topics for inputs are of the following format:
     devices/<deviceId>/modules/<moduleId>/inputs/<inputName>
+
     :param topic: The topic string
     """
     parts = topic.split("/")
@@ -148,23 +185,6 @@ def get_method_name_from_topic(topic):
         raise ValueError("topic has incorrect format")
 
 
-# TODO: leverage this helper in all property extraction functions
-def _extract_properties(properties_str):
-    """Return a dictionary of properties from a string in the format
-    ${key1}={value1}&${key2}={value2}&...{keyn}={valuen}
-    """
-    d = {}
-    kv_pairs = properties_str.split("&")
-
-    for entry in kv_pairs:
-        pair = entry.split("=")
-        key = urllib.parse.unquote_plus(pair[0]).lstrip("$")
-        value = urllib.parse.unquote_plus(pair[1])
-        d[key] = value
-
-    return d
-
-
 def get_method_request_id_from_topic(topic):
     """
     Extract the Request ID (RID) from the method topic.
@@ -184,8 +204,43 @@ def get_method_request_id_from_topic(topic):
         raise ValueError("topic has incorrect format")
 
 
+def get_twin_request_id_from_topic(topic):
+    """
+    Extract the Request ID (RID) from the twin response topic.
+    Topics for twin response are in the following format:
+    "$iothub/twin/res/{status}/?$rid={rid}"
+
+    :param str topic: The topic string
+    :raises: ValueError if topic has incorrect format
+    :returns: request id from topic string
+    """
+    parts = topic.split("/")
+    if is_twin_response_topic(topic) and len(parts) >= 4:
+        properties = _extract_properties(topic.split("?")[1])
+        return properties["rid"]
+    else:
+        raise ValueError("topic has incorrect format")
+
+
+def get_twin_status_code_from_topic(topic):
+    """
+    Extract the status code from the twin response topic.
+    Topics for twin response are in the following format:
+    "$iothub/twin/res/{status}/?$rid={rid}"
+
+    :param str topic: The topic string
+    :raises: ValueError if the topic has incorrect format
+    :returns status code from topic string
+    """
+    parts = topic.split("/")
+    if is_twin_response_topic(topic) and len(parts) >= 4:
+        return parts[3]
+    else:
+        raise ValueError("topic has incorrect format")
+
+
 # TODO: this has too generic a name, given that it's only for messages
-def extract_properties_from_topic(topic, message_received):
+def extract_message_properties_from_topic(topic, message_received):
     """
     Extract key=value pairs from custom properties and set the properties on the received message.
     :param topic: The topic string
@@ -231,7 +286,7 @@ def extract_properties_from_topic(topic, message_received):
 
 
 # TODO: this has too generic a name, given that it's only for messages
-def encode_properties(message_to_send, topic):
+def encode_message_properties(message_to_send, topic):
     """
     uri-encode the system properties of a message as key-value pairs on the topic with defined keys.
     Additionally if the message has user defined properties, the property keys and values shall be
@@ -289,30 +344,18 @@ def encode_properties(message_to_send, topic):
     return topic
 
 
-def get_twin_response_topic_for_subscribe():
-    return "$iothub/twin/res/#"
+# TODO: leverage this helper in all property extraction functions
+def _extract_properties(properties_str):
+    """Return a dictionary of properties from a string in the format
+    ${key1}={value1}&${key2}={value2}&...{keyn}={valuen}
+    """
+    d = {}
+    kv_pairs = properties_str.split("&")
 
+    for entry in kv_pairs:
+        pair = entry.split("=")
+        key = urllib.parse.unquote_plus(pair[0]).lstrip("$")
+        value = urllib.parse.unquote_plus(pair[1])
+        d[key] = value
 
-def get_twin_patch_topic_for_subscribe():
-    return "$iothub/twin/PATCH/properties/desired/#"
-
-
-def get_twin_topic_for_publish(method, resource_location, request_id):
-    return "$iothub/twin/{}{}?$rid={}".format(method, resource_location, request_id)
-
-
-def get_twin_request_id_from_topic(topic):
-    parts = topic.split("/")
-    if is_twin_response_topic(topic) and len(parts) >= 4:
-        properties = _extract_properties(topic.split("?")[1])
-        return properties["rid"]
-    else:
-        raise ValueError("topic has incorrect format")
-
-
-def get_twin_status_code_from_topic(topic):
-    parts = topic.split("/")
-    if is_twin_response_topic(topic) and len(parts) >= 4:
-        return parts[3]
-    else:
-        raise ValueError("topic has incorrect format")
+    return d
