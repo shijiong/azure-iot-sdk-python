@@ -17,14 +17,14 @@ def _get_topic_base():
     return "$dps/registrations/"
 
 
-def get_topic_for_subscribe():
+def get_register_topic_for_subscribe():
     """
     return the topic string used to subscribe for receiving future responses from DPS
     """
     return _get_topic_base() + "res/#"
 
 
-def get_topic_for_register(request_id):
+def get_register_topic_for_publish(request_id):
     """
     return the topic string used to publish telemetry
     """
@@ -33,7 +33,7 @@ def get_topic_for_register(request_id):
     )
 
 
-def get_topic_for_query(request_id, operation_id):
+def get_query_topic_for_publish(request_id, operation_id):
     """
     :return: The topic for cloud to device messages.It is of the format
     "devices/<deviceid>/messages/devicebound/#"
@@ -44,6 +44,7 @@ def get_topic_for_query(request_id, operation_id):
     ).format(request_id=request_id, operation_id=operation_id)
 
 
+# TODO: Should this even exist? It's only used here
 def get_topic_for_response():
     """
     return the topic string used to publish telemetry

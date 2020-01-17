@@ -185,6 +185,7 @@ def get_method_name_from_topic(topic):
         raise ValueError("topic has incorrect format")
 
 
+# CT-TODO: URL decode request id for safety
 def get_method_request_id_from_topic(topic):
     """
     Extract the Request ID (RID) from the method topic.
@@ -239,7 +240,6 @@ def get_twin_status_code_from_topic(topic):
         raise ValueError("topic has incorrect format")
 
 
-# TODO: this has too generic a name, given that it's only for messages
 def extract_message_properties_from_topic(topic, message_received):
     """
     Extract key=value pairs from custom properties and set the properties on the received message.
@@ -285,8 +285,7 @@ def extract_message_properties_from_topic(topic, message_received):
                 message_received.custom_properties[key] = value
 
 
-# TODO: this has too generic a name, given that it's only for messages
-def encode_message_properties(message_to_send, topic):
+def encode_message_properties_in_topic(message_to_send, topic):
     """
     uri-encode the system properties of a message as key-value pairs on the topic with defined keys.
     Additionally if the message has user defined properties, the property keys and values shall be
@@ -344,7 +343,6 @@ def encode_message_properties(message_to_send, topic):
     return topic
 
 
-# TODO: leverage this helper in all property extraction functions
 def _extract_properties(properties_str):
     """Return a dictionary of properties from a string in the format
     ${key1}={value1}&${key2}={value2}&...{keyn}={valuen}

@@ -13,7 +13,7 @@ from azure.iot.device.common.pipeline import (
     pipeline_thread,
 )
 from azure.iot.device.common.pipeline.pipeline_stages_base import PipelineStage
-from azure.iot.device.provisioning.pipeline import mqtt_topic
+from azure.iot.device.provisioning.pipeline import mqtt_topic_provisioning
 from azure.iot.device.provisioning.pipeline import (
     pipeline_events_provisioning,
     pipeline_ops_provisioning,
@@ -66,7 +66,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_provisioning.SendRegistrationRequestOperation):
             # Convert Sending the request into MQTT Publish operations
-            topic = mqtt_topic.get_topic_for_register(op.request_id)
+            topic = mqtt_topic_provisioning.get_register_topic_for_publish(op.request_id)
 
             # This is an easier way to get the json eventually
             # rather than formatting strings without if else conditions
@@ -83,7 +83,9 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_provisioning.SendQueryRequestOperation):
             # Convert Sending the request into MQTT Publish operations
-            topic = mqtt_topic.get_topic_for_query(op.request_id, op.operation_id)
+            topic = mqtt_topic_provisioning.get_query_topic_for_publish(
+                op.request_id, op.operation_id
+            )
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
                 topic=topic,
@@ -93,7 +95,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_base.EnableFeatureOperation):
             # Enabling for register gets translated into an MQTT subscribe operation
-            topic = mqtt_topic.get_topic_for_subscribe()
+            topic = mqtt_topic_provisioning.get_register_topic_for_subscribe()
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTSubscribeOperation, topic=topic
             )
@@ -101,7 +103,7 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
 
         elif isinstance(op, pipeline_ops_base.DisableFeatureOperation):
             # Disabling a register response gets turned into an MQTT unsubscribe operation
-            topic = mqtt_topic.get_topic_for_subscribe()
+            topic = mqtt_topic_provisioning.get_register_topic_for_subscribe()
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTUnsubscribeOperation, topic=topic
             )
@@ -120,14 +122,14 @@ class ProvisioningMQTTTranslationStage(PipelineStage):
         if isinstance(event, pipeline_events_mqtt.IncomingMQTTMessageEvent):
             topic = event.topic
 
-            if mqtt_topic.is_dps_response_topic(topic):
+            if mqtt_topic_provisioning.is_dps_response_topic(topic):
                 logger.info(
                     "Received payload:{payload} on topic:{topic}".format(
                         payload=event.payload, topic=topic
                     )
                 )
-                key_values = mqtt_topic.extract_properties_from_topic(topic)
-                status_code = mqtt_topic.extract_status_code_from_topic(topic)
+                key_values = mqtt_topic_provisioning.extract_properties_from_topic(topic)
+                status_code = mqtt_topic_provisioning.extract_status_code_from_topic(topic)
                 request_id = key_values["rid"][0]
                 if event.payload is not None:
                     response = event.payload.decode("utf-8")

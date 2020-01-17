@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 # NOTE: All tests (that require it) are parametrized with multiple values for URL encoding.
 # This is to show that the URL encoding is done correctly - not all URL encoding encodes
 # the '+' character. Thus we must make sure any URL encoded value can encode a '+' specifically,
-# in addition to regular encoding.
+# in addition to standard URL encoding.
 
 
 @pytest.mark.describe(".get_c2d_topic_for_subscribe()")

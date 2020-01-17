@@ -133,7 +133,9 @@ class IoTHubMQTTTranslationStage(PipelineStage):
             op, pipeline_ops_iothub.SendOutputEventOperation
         ):
             # Convert SendTelementry and SendOutputEventOperation operations into MQTT Publish operations
-            topic = mqtt_topic_iothub.encode_message_properties(op.message, self.telemetry_topic)
+            topic = mqtt_topic_iothub.encode_message_properties_in_topic(
+                op.message, self.telemetry_topic
+            )
             worker_op = op.spawn_worker_op(
                 worker_op_type=pipeline_ops_mqtt.MQTTPublishOperation,
                 topic=topic,
