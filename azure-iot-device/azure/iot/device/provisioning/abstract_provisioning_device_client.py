@@ -12,6 +12,10 @@ import abc
 import six
 import logging
 from azure.iot.device.provisioning import pipeline, security
+from OpenSSL import crypto
+from OpenSSL.SSL import FILETYPE_PEM
+import cryptography
+
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +132,16 @@ class AbstractProvisioningDeviceClient(object):
         :returns: A ProvisioningDeviceClient which can register via Symmetric Key.
         """
         _validate_kwargs(**kwargs)
+
+        contents = None
+        with open(x509.certificate_file) as f:
+            contents = f.read()
+
+        if contents:
+            x509_crypto = crypto.load_certificate(FILETYPE_PEM, contents)
+
+        registration_id = x509_crypto.get_subject()
+        logging.DEBUG("Got subject from PEM certificate")
 
         security_client = security.X509SecurityClient(
             provisioning_host=provisioning_host,
