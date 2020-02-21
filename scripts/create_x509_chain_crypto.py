@@ -12,6 +12,10 @@ import getpass
 
 # one_day = datetime.timedelta(1, 0, 0)
 PUBLIC_EXPONENT = 65537
+EXTENSION_NAME = ".pem"
+COMMON_DEVICE_PASSWORD_FILE = "demoCACrypto/private/device_key"
+COMMON_DEVICE_CSR_FILE = "demoCA/newcerts/device_csr"
+COMMON_DEVICE_CERT_FILE = "demoCA/newcerts/device_cert"
 
 
 def create_certificate_chain(
@@ -77,28 +81,28 @@ def create_root_ca(root_common_name, root_private_key, days=3650):
     return root_cert
 
 
-def create_intermediate_ca(root_cert, root_key, intermediate_csr, days=3650):
+def create_intermediate_cert(root_cert, root_key, intermediate_csr, days=3650):
     file_intermediate_certificate = "demoCACrypto/newcerts/intermediate_cert.pem"
-
-    intermediate_csr_crypto = crypto.X509Req.from_cryptography(intermediate_csr)
-    root_cert_crypto = crypto.X509.from_cryptography(root_cert)
-    root_key_crypto = crypto.PKey.from_cryptography_key(root_key)
-
-    intermediate_cert_crypto = crypto.X509()
-    intermediate_cert_crypto.set_serial_number(int(uuid.uuid4()))
-    intermediate_cert_crypto.add_extensions(intermediate_csr_crypto.get_extensions())
-    intermediate_cert_crypto.gmtime_adj_notBefore(0)
-    intermediate_cert_crypto.gmtime_adj_notAfter(60 * 60 * 24 * int(days / 10))
-    intermediate_cert_crypto.set_issuer(root_cert_crypto.get_subject())
-    intermediate_cert_crypto.set_subject(intermediate_csr_crypto.get_subject())
-    intermediate_cert_crypto.set_pubkey(intermediate_csr_crypto.get_pubkey())
-    intermediate_cert_crypto.sign(root_key_crypto, "sha256")
-
-    with open(file_intermediate_certificate, "wb") as f:
-        f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, intermediate_cert_crypto))
-
-    intermediate_cert = intermediate_cert_crypto.to_cryptography()
-    return intermediate_cert
+    #
+    # intermediate_csr_crypto = crypto.X509Req.from_cryptography(intermediate_csr)
+    # root_cert_crypto = crypto.X509.from_cryptography(root_cert)
+    # root_key_crypto = crypto.PKey.from_cryptography_key(root_key)
+    #
+    # intermediate_cert_crypto = crypto.X509()
+    # intermediate_cert_crypto.set_serial_number(int(uuid.uuid4()))
+    # intermediate_cert_crypto.add_extensions(intermediate_csr_crypto.get_extensions())
+    # intermediate_cert_crypto.gmtime_adj_notBefore(0)
+    # intermediate_cert_crypto.gmtime_adj_notAfter(60 * 60 * 24 * int(days / 10))
+    # intermediate_cert_crypto.set_issuer(root_cert_crypto.get_subject())
+    # intermediate_cert_crypto.set_subject(intermediate_csr_crypto.get_subject())
+    # intermediate_cert_crypto.set_pubkey(intermediate_csr_crypto.get_pubkey())
+    # intermediate_cert_crypto.sign(root_key_crypto, "sha256")
+    #
+    # with open(file_intermediate_certificate, "wb") as f:
+    #     f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, intermediate_cert_crypto))
+    #
+    # intermediate_cert = intermediate_cert_crypto.to_cryptography()
+    # return intermediate_cert
 
     # builder = x509.CertificateBuilder()
     # builder = create_ca_type_cert(builder, intermediate_common_name, intermediate_public_key, days)
@@ -110,11 +114,63 @@ def create_intermediate_ca(root_cert, root_key, intermediate_csr, days=3650):
     # with open(file_intermediate_certificate, "wb") as f:
     #     f.write(certificate.public_bytes(serialization.Encoding.PEM))
 
-
-def create_csr(password_file, csr_file, common_name, password=None, key_size=4096):
-    intermediate_private_key = create_private_key(
-        password_file=password_file, password=password, key_size=key_size
+    create_certificate_from_csr(
+        csr_req=intermediate_csr,
+        issuer_cert=root_cert,
+        issuer_key=root_key,
+        serial=int(uuid.uuid4()),
+        not_before=0,
+        not_after=60 * 60 * 24 * int(days / 10),
+        filename=file_intermediate_certificate,
     )
+
+
+def create_multiple_device_keys_and_certs(
+    number_of_devices, device_password, device_common_name, key_size=4096
+):
+
+    for i in range(1, number_of_devices + 1):
+        device_password_file = COMMON_DEVICE_PASSWORD_FILE + str(i) + EXTENSION_NAME
+        device_csr_file = COMMON_DEVICE_CSR_FILE + str(i) + EXTENSION_NAME
+        device_private_key = create_private_key(
+            password_file=device_password_file, password=device_password, key_size=key_size
+        )
+        device_1_csr = create_csr(
+            private_key=device_private_key,
+            csr_file=device_csr_file,
+            common_name="device" + device_common_name,
+            password=device_password,
+            key_size=key_size,
+            is_ca=False,
+        )
+
+        create_device_cert(
+            index=i,
+            intermediate_cert=intermediate_cert,
+            intermediate_key=intermediate_private_key,
+            intermediate_csr=device_1_csr,
+            days=3650,
+        )
+
+
+def create_device_cert(index, intermediate_cert, intermediate_key, device_csr, days=3650):
+    file_device_certificate = COMMON_DEVICE_CERT_FILE + str(index) + EXTENSION_NAME
+
+    create_certificate_from_csr(
+        csr_req=device_csr,
+        issuer_cert=intermediate_cert,
+        issuer_key=intermediate_key,
+        serial=int(uuid.uuid4()),
+        not_before=0,
+        not_after=60 * 60 * 24 * int(days / 10),
+        filename=file_device_certificate,
+    )
+
+
+def create_csr(private_key, csr_file, common_name, password=None, key_size=4096, is_ca=False):
+    # private_key = create_private_key(
+    #     password_file=password_file, password=password, key_size=key_size
+    # )
     builder = (
         x509.CertificateSigningRequestBuilder()
         .subject_name(
@@ -125,11 +181,11 @@ def create_csr(password_file, csr_file, common_name, password=None, key_size=409
                 ]
             )
         )
-        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=False)
+        .add_extension(x509.BasicConstraints(is_ca=True, path_length=None), critical=False)
     )
 
     csr = builder.sign(
-        private_key=intermediate_private_key, algorithm=hashes.SHA256(), backend=default_backend()
+        private_key=private_key, algorithm=hashes.SHA256(), backend=default_backend()
     )
 
     with open(csr_file, "wb") as f:
@@ -161,10 +217,12 @@ def create_ca_type_cert(builder, common_name, public_key, days):
     return builder.public_key(public_key)
 
 
-def create_certificate_from_csr(req, issuer_cert, issuer_key, serial, not_before, not_after):
+def create_certificate_from_csr(
+    csr_req, issuer_cert, issuer_key, serial, not_before, not_after, filename
+):
     """
     Generate a certificate given a certificate request.
-    Arguments: req        - Certificate reqeust to use
+    Arguments: csr_req        - Certificate reqeust to use
                issuerCert - The certificate of the issuer
                issuerKey  - The private key of the issuer
                serial     - Serial number for the certificate
@@ -175,16 +233,25 @@ def create_certificate_from_csr(req, issuer_cert, issuer_key, serial, not_before
                digest     - Digest method to use for signing, default is md5
     Returns:   The signed certificate in an X509 object
     """
-    # cert = crypto.X509()
-    # cert.set_serial_number(serial)
-    # cert.gmtime_adj_notBefore(not_before)
-    # cert.gmtime_adj_notAfter(not_after)
-    # cert.set_issuer(issuer_cert.get_subject())
-    # cert.set_subject(req.get_subject())
-    # cert.set_pubkey(req.get_pubkey())
-    # cert.sign(issuer_key, digest)
-    # return cert
-    pass
+
+    csr_req_crypto = crypto.X509Req.from_cryptography(csr_req)
+    issuer_cert_crypto = crypto.X509.from_cryptography(issuer_cert)
+    issuer_key_crypto = crypto.PKey.from_cryptography_key(issuer_key)
+
+    cert_crypto = crypto.X509()
+    cert_crypto.set_serial_number(serial)
+    cert_crypto.gmtime_adj_notBefore(not_before)
+    cert_crypto.gmtime_adj_notAfter(not_after)
+    cert_crypto.set_issuer(issuer_cert_crypto.get_subject())
+    cert_crypto.set_subject(csr_req_crypto.get_subject())
+    cert_crypto.set_pubkey(csr_req_crypto.get_pubkey())
+    cert_crypto.sign(issuer_key_crypto, "sha256")
+
+    with open(filename, "wb") as f:
+        f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert_crypto))
+
+    cert = cert_crypto.to_cryptography()
+    return cert
 
 
 def create_directories_and_prereq_files(pipeline):
@@ -250,12 +317,15 @@ if __name__ == "__main__":
     # print(str.encode(common_name).decode("utf-8"))
 
     create_directories_and_prereq_files(False)
+    key_size = 4096
     abs_common_name = "leviosa"
     root_pass = "hogwarts"
     inter_pass = "hogwartsi"
+    device_pass = "hogwartsd"
+
     root_password_file = "demoCACrypto/private/ca_key.pem"
     root_private_key = create_private_key(
-        password_file=root_password_file, password=root_pass, key_size=4096
+        password_file=root_password_file, password=root_pass, key_size=key_size
     )
     root_cert = create_root_ca(
         root_common_name="root" + abs_common_name, root_private_key=root_private_key, days=3650
@@ -263,13 +333,19 @@ if __name__ == "__main__":
 
     intermediate_password_file = "demoCACrypto/private/intermediate_key.pem"
     intermediate_csr_file = "demoCA/newcerts/intermediate_csr.pem"
+    intermediate_private_key = create_private_key(
+        password_file=intermediate_password_file, password=inter_pass, key_size=key_size
+    )
     intermediate_csr = create_csr(
-        password_file=intermediate_password_file,
+        private_key=intermediate_private_key,
         csr_file=intermediate_csr_file,
         common_name="inter" + abs_common_name,
         password=inter_pass,
-        key_size=4096,
+        key_size=key_size,
+        is_ca=True,
     )
-    intermediate_cert = create_intermediate_ca(
+    intermediate_cert = create_intermediate_cert(
         root_cert=root_cert, root_key=root_private_key, intermediate_csr=intermediate_csr, days=3650
     )
+
+    # create_multiple_device_keys_and_certs(2, device_pass, "device" + abs_common_name, key_size)
