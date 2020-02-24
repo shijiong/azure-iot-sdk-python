@@ -21,7 +21,8 @@ def create_custom_config():
     # Best options is to have the location of openssl config file in an env variable
     # The openssl config file extension could be "cfg" or "cnf"
 
-    config_path = os.getenv("OPENSSL_CONF")
+    # config_path = os.getenv("OPENSSL_CONF")
+    config_path = "/usr/local/etc/openssl/openssl.cnf"
     with open(config_path, "r") as openssl_config:
         config = openssl_config.read()
     lines = config.splitlines()
@@ -62,7 +63,9 @@ def create_custom_config():
         local_file.write("\n".join(list_of_lines) + "\n")
 
 
-def create_verification_cert(nonce, root_verify, ca_password=None, intermediate_password=None, key_size=4096):
+def create_verification_cert(
+    nonce, root_verify, ca_password=None, intermediate_password=None, key_size=4096
+):
     print(ca_password)
     print("Done generating verification key")
     # subject = "//C=US/CN=" + nonce
@@ -94,7 +97,17 @@ def create_verification_cert(nonce, root_verify, ca_password=None, intermediate_
 
     print_subprocess_output(run_verification_key)
 
-    command_verification_csr = ["openssl", "req", "-key", key_file, "-new", "-out", csr_file, "-subj", subject]
+    command_verification_csr = [
+        "openssl",
+        "req",
+        "-key",
+        key_file,
+        "-new",
+        "-out",
+        csr_file,
+        "-subj",
+        subject,
+    ]
 
     run_verification_csr = subprocess.run(
         command_verification_csr,
@@ -105,15 +118,25 @@ def create_verification_cert(nonce, root_verify, ca_password=None, intermediate_
 
     print_subprocess_output(run_verification_csr)
 
-    command_verification_cert = ["openssl", "x509", "-req", "-in", csr_file, "-CA", in_cert_file, "-CAkey", in_key_file,
-                                 "-passin",
-                                 "pass:" + passphrase,
-                                 "-CAcreateserial",
-                                 "-out",
-                                 out_cert_file,
-                                 "-days",
-                                 str(30),
-                                 "-sha256"]
+    command_verification_cert = [
+        "openssl",
+        "x509",
+        "-req",
+        "-in",
+        csr_file,
+        "-CA",
+        in_cert_file,
+        "-CAkey",
+        in_key_file,
+        "-passin",
+        "pass:" + passphrase,
+        "-CAcreateserial",
+        "-out",
+        out_cert_file,
+        "-days",
+        str(30),
+        "-sha256",
+    ]
 
     run_verification_cert = subprocess.run(
         command_verification_cert,
